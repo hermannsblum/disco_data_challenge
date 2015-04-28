@@ -13,13 +13,14 @@ USERS_PATH = DATA_PATH + '/yelp_academic_dataset_user.json'
 
 def import_file(path):
     def decorate(func):
-        def decorated():
+        def decorated(status=False):
             data = []
             with open(path) as file:
                 for line in file:
                     data.append(json.loads(line))
             ret = pd.DataFrame(data)
-            func(ret.columns.values)
+            if status:
+                func(ret.columns.values)
             return ret
         return decorated
     return decorate
