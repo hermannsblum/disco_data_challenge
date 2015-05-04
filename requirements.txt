@@ -16,3 +16,4 @@ pyzmq==14.6.0
 six==1.9.0
 terminado==0.5
 tornado==4.1
+geopy==1.10.0
