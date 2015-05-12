@@ -1,5 +1,6 @@
 from geopy.distance import vincenty
 from numpy import linspace
+from math import exp
 import pandas as pd
 
 
@@ -26,34 +27,73 @@ class CellCollection:
                 y = y + 1
         return x, y
 
-    def get_neighbours(self, business, businesses):
 
-        def radius_step(radius, num_longtidues, num_latitudes):
-            if radius['long_down'] > 0:
-                radius['long_down'] = radius['long_down'] - 1
-            if radius['long_up'] < num_longtidues - 1:
-                radius['long_up'] = radius['long_up'] + 1
-            if radius['lat_down'] > 0:
-                radius['lat_down'] = radius['lat_down'] - 1
-            if radius['lat_up'] < num_latitudes - 1:
-                radius['lat_up'] = radius['lat_up'] + 1
+class ExponentialRadius:
 
-        cell = self.get_cell(business)
-        radius = {'long_down': cell[0], 'long_up': cell[0] + 1,
-                  'lat_down': cell[1], 'lat_up': cell[1] + 1}
-        ret = []
-        while len(ret) == 0:
-            radius_step(radius, self.longitudes.size, self.latitudes.size)
-            query = ("business_id != '{0}'and longitude > {1} "
+    def __init__(self, step, business):
+        self.i = -1
+        self.long_point = float(business.longitude)
+        self.lat_point = float(business.latitude)
+        self.long_down = float(business.longitude)
+        self.long_up = float(business.longitude)
+        self.lat_down = float(business.latitude)
+        self.lat_up = float(business.latitude)
+        self.step_dist = float(step)
+
+    def step(self):
+        self.i = self.i + 1
+        step = self.step_dist * exp(self.i)
+
+        self.long_down = self.long_point - step
+        if self.long_down < -180:
+            self.long_down = -180
+        self.long_up = self.long_point + step
+        if self.long_up > 180:
+            self.long_up = 180
+        self.lat_down = self.lat_point - step
+        if self.lat_down < -90:
+            self.lat_down = -90
+        self.lat_up = self.lat_point + step
+        if self.lat_up > 90:
+            self.lat_up = 90
+
+    def inner_radius(self):
+        return vincenty((self.long_point, self.lat_point), (self.long_down, self.lat_point)).km
+
+
+def get_neighbours(business, businesses, num=5, step=0.1):
+    """
+    :param business: The business we search the neirest neighbour for
+    :param businesses: The DataFrame of businesses we search in
+    :param num: minimal number of neighbours to return
+    :param step: distance for one search step in km
+    """
+    # degrees for 1km at the aquator
+    onekm = 360 / 40074
+    # convert step to degrees
+    step = step * onekm
+    radius = ExponentialRadius(step, business)
+    neighbours = []
+    region = []
+    i = 0
+    while len(neighbours) < num and radius.inner_radius() < 100:
+        i = i + 1
+        while len(region) < num * exp(i):
+            print(radius.inner_radius())
+            radius.step()
+            query = ('index != "{0}" and longitude > {1} '
                      "and longitude < {2} and latitude > {3} "
                      "and latitude < {4}").format(
-                business.business_id,
-                self.longitudes.item(radius['long_down']),
-                self.longitudes.item(radius['long_up']),
-                self.latitudes.item(radius['lat_down']),
-                self.latitudes.item(radius['lat_up']))
-            ret = businesses.query(query)
-        return ret
+                business.index, radius.long_down, radius.long_up,
+                radius.lat_down, radius.lat_up)
+            region = businesses.query(query)
+
+        print(radius.inner_radius())
+        neighbours = region
+        neighbours['distance'] = pd.Series(neighbours.apply(
+            lambda row: distance(business, row), axis=1), index=neighbours.index)
+        neighbours = neighbours[neighbours['distance'] < radius.inner_radius()]
+    return neighbours
 
 
 def distance(a, b):
@@ -61,15 +101,8 @@ def distance(a, b):
     :param a: first business
     :param b: second business
     :returns: distance in meters"""
-    return vincenty((a.longitude, a.latitude), (b.longitude, b.latitude)).km
-
-
-def get_neighbours(business, businesses):
-    cells = CellCollection(36000, 18000)
-    neighbours = cells.get_neighbours(business, businesses)
-    neighbours['distance'] = pd.Series(neighbours.apply(
-        lambda row: distance(business, row), axis=1), index=neighbours.index)
-    return neighbours
+    return vincenty((float(a.longitude), float(a.latitude)),
+                    (float(b.longitude), float(b.latitude))).km
 
 
 def neirest_neighbour(business, businesses):
@@ -77,7 +110,6 @@ def neirest_neighbour(business, businesses):
     :param business: The business we search the neirest neighbour for
     :param businesses: The DataFrame of businesses we search in
     :returns: neighbour id and distance"""
-    neighbours = get_neighbours(business, businesses)
+    neighbours = get_neighbours(business, businesses, num=1)
     index = neighbours['distance'].idxmin()
-    print(index)
     return neighbours.loc[index]
