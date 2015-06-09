@@ -129,6 +129,16 @@ class CellCollection:
                     ret.append(neighbour)
         return ret
 
+    def to_dataframe(self):
+        ret = pd.DataFrame(self.cells)
+        return ret
+
+    def to_dict(self):
+        return self.cells.copy()
+
+    def get_borders(self):
+        return self.longitudes.copy(), self.latitudes.copy()
+
 
 def distance(a, b):
     """Calculate distances between businesses
