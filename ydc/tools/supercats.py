@@ -4,7 +4,7 @@ import networkx as nx
 from operator import itemgetter
 import community
 
-def partitions(graph, threshold=0):
+def partitions(graph):
     """
     Internal use only.
     Finds partitions with louvain method and returns dict
@@ -22,11 +22,6 @@ def partitions(graph, threshold=0):
         # add node with degree in graph (for sorting) as tuples to list
         parts[n].append(item)  # ((item, graph.degree()[item]))
         
-    # Now some cleaning: All categories below threshold are eliminated
-    for key in list(parts.keys()):
-        if len(parts[key]) < threshold:
-            del parts[key]
-
     # Use degree to find name for category
     names = {key: max([(item, graph.degree(weight='weight')[item]) for item in parts[key]], key=itemgetter(1))[0] for key in parts}
     
@@ -128,8 +123,13 @@ def add_supercats(df_in):
         catlist = [item for item in parts[key]['categories'] if (item is not parts[key]['name'])]
         # subgraph
         subgraph = graph.subgraph(catlist)
+        # This subgraph will now contain some single "stray" nodes
+        # that were only connected to the namegiving node. Remove them
+        components = nx.connected_component_subgraphs(subgraph)
+        connected = max(components, key = len) # Only take largest
+        
         # partitioning
-        subparts = partitions(subgraph, 0)
+        subparts = partitions(connected)
         # Adding to result dict
         parts[key]['sub_categories'] = subparts
         # Add to dataframe
