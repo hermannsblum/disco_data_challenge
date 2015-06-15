@@ -14,7 +14,7 @@ USERS_PATH = path.join(DATA_PATH, 'yelp_academic_dataset_user.json')
 
 def import_file(file_path, pickle_name):
     def decorate(func):
-        def decorated(status=False):
+        def decorated(status=False, cache=False):
             pickle = path.join(PICKLE_PATH, pickle_name)
             try:
                 # Try to read from pickle
@@ -27,8 +27,9 @@ def import_file(file_path, pickle_name):
                         data.append(json.loads(line))
                 ret = pd.DataFrame(data)
                 # Save pickle
-                makedirs(PICKLE_PATH, exist_ok=True)  # Create if necessary
-                ret.to_pickle(pickle)
+                if cache:
+                    makedirs(PICKLE_PATH, exist_ok=True)  # Create if necessary
+                    ret.to_pickle(pickle)
 
             if status:
                 func(ret.columns.values)
