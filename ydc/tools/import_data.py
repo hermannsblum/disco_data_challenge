@@ -1,6 +1,7 @@
 import pandas as pd
 import json
 from os import path, makedirs
+import hashlib
 
 DATA_PATH = 'data'
 PICKLE_PATH = 'pickles'
@@ -14,8 +15,11 @@ USERS_PATH = path.join(DATA_PATH, 'yelp_academic_dataset_user.json')
 
 def import_file(file_path, pickle_name):
     def decorate(func):
-        def decorated(status=False, cache=False):
-            pickle = path.join(PICKLE_PATH, pickle_name)
+        def decorated(fields=None, status=False, cache=True):
+            pickle_hash = hashlib.md5()
+            pickle_hash.update(bytes(pickle_name, 'UTF-8'))
+            pickle_hash.update(bytes(str(fields), 'UTF-8'))
+            pickle = path.join(PICKLE_PATH, pickle_hash.hexdigest() + '.pkl')
             try:
                 # Try to read from pickle
                 ret = pd.read_pickle(pickle)
@@ -24,7 +28,12 @@ def import_file(file_path, pickle_name):
                 data = []
                 with open(file_path) as file:
                     for line in file:
-                        data.append(json.loads(line))
+                        line_dict = json.loads(line)
+                        if fields is not None:
+                            for key in list(line_dict.keys()):
+                                if key not in fields:
+                                    line_dict.pop(key)
+                        data.append(line_dict)
                 ret = pd.DataFrame(data)
                 # Save pickle
                 if cache:
@@ -61,28 +70,3 @@ def import_tips(columns):
 @import_file(USERS_PATH, 'users')
 def import_users(columns):
     print('Successfully imported users with columns %s' % columns)
-
-
-def import_reviews_without_text(status=False, cache=True):
-    file_path = REVIEWS_PATH
-    pickle_name = 'reviews_without_text'
-    pickle = path.join(PICKLE_PATH, pickle_name)
-    try:
-        # Try to read from pickle
-        ret = pd.read_pickle(pickle)
-    except FileNotFoundError as e:
-        # Pickle not found, create from data file
-        data = []
-        with open(file_path) as file:
-            for line in file:
-                data.append(json.loads(line))
-        ret = pd.DataFrame(data)
-        # Save pickle
-        if cache:
-            makedirs(PICKLE_PATH, exist_ok=True)  # Create if necessary
-            ret.to_pickle(pickle)
-
-    if status:
-        print('Successfully imported users with columns {}'.format(
-            ret.columns.values))
-    return ret
