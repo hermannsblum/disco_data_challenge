@@ -61,3 +61,28 @@ def import_tips(columns):
 @import_file(USERS_PATH, 'users')
 def import_users(columns):
     print('Successfully imported users with columns %s' % columns)
+
+
+def import_reviews_without_text(status=False, cache=True):
+    file_path = REVIEWS_PATH
+    pickle_name = 'reviews_without_text'
+    pickle = path.join(PICKLE_PATH, pickle_name)
+    try:
+        # Try to read from pickle
+        ret = pd.read_pickle(pickle)
+    except FileNotFoundError as e:
+        # Pickle not found, create from data file
+        data = []
+        with open(file_path) as file:
+            for line in file:
+                data.append(json.loads(line))
+        ret = pd.DataFrame(data)
+        # Save pickle
+        if cache:
+            makedirs(PICKLE_PATH, exist_ok=True)  # Create if necessary
+            ret.to_pickle(pickle)
+
+    if status:
+        print('Successfully imported users with columns {}'.format(
+            ret.columns.values))
+    return ret
