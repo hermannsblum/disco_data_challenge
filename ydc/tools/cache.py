@@ -4,6 +4,8 @@ import pickle
 
 from os import path
 
+from os import makedirs
+
 PICKLE_PATH = 'pickles'
 
 
@@ -46,6 +48,9 @@ def cache_result(pickle_dir):
                 # No caching, do nothing
                 return function(*args, **kwargs)
             else:
+                # Create dir if necessary
+                makedirs(pickle_dir, exist_ok=True)
+
                 # Get pickle name
                 pickle_file = _get_name(*args, base_path=pickle_dir, **kwargs)
 
