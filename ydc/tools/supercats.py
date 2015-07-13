@@ -3,8 +3,10 @@ import numpy as np
 import networkx as nx
 from operator import itemgetter
 import community
+from ydc.tools.cache import cache_result
 
-def partitions(graph):
+
+def _partitions(graph):
     """
     Internal use only.
     Finds partitions with louvain method and returns dict
@@ -21,16 +23,21 @@ def partitions(graph):
 
         # add node with degree in graph (for sorting) as tuples to list
         parts[n].append(item)  # ((item, graph.degree()[item]))
-        
+
     # Use degree to find name for category
-    names = {key: max([(item, graph.degree(weight='weight')[item]) for item in parts[key]], key=itemgetter(1))[0] for key in parts}
-    
+    names = {key: max(
+        [(item, graph.degree(weight='weight')[item]) for item in parts[key]],
+        key=itemgetter(1))
+        [0] for key in parts}
+
     # New return dict. ToDo: make it like thisright away
-    res = {key: {'name': names[key], 'categories': parts[key]} for key in parts}
-    
+    res = {key: {'name': names[key], 'categories': parts[key]}
+           for key in parts}
+
     return res
 
-def get_cat(data, catlist):
+
+def _get_cat(data, catlist):
     """
     Internal use only.
     return data to add to column
@@ -38,15 +45,17 @@ def get_cat(data, catlist):
     # For every supercat
     # sum along row to get the number to see how many categories beloning to
     # the supercat are in there
-    supercatframe = pd.DataFrame([data[catlist[key]['categories']].sum(axis=1) for key in catlist])
-  
+    supercatframe = pd.DataFrame(
+        [data[catlist[key]['categories']].sum(axis=1) for key in catlist])
+
     # Just use argmax to assign supercat to business: TODO: Better way?
     catmap = supercatframe.idxmax()
 
     # Add supercat to dataframe
     return catmap
-    
 
+
+@cache_result("pickles")
 def add_supercats(df_in):
     """Requires df with businesses.
     Converts this to graph, then uses louvain method to find clusters
@@ -58,7 +67,7 @@ def add_supercats(df_in):
 
     Args:
         df_in (pandas.DataFrame): dataframe , needs a column 'categories'
-    
+
     Returns:
         (df_out, supercatnames, supercats, adjacency, graph):
         df_out (pandas.DataFrame): Dataframe with added column for categories
@@ -81,10 +90,10 @@ def add_supercats(df_in):
 
     # drop duplicates by converting to set
     cats = set(l)
-    
+
     # Convert category entries to columns
     data = busicat.apply(lambda x: pd.Series(1, index=x))
-    
+
     # Create list of data series
     mapdata = {}
     for cat in cats:
@@ -93,10 +102,7 @@ def add_supercats(df_in):
     # Modify data to create adjacency matrix: set all values above 1 to 1
     # and set diagonal to 0
     df = pd.DataFrame(mapdata)
-    
-    #Copy for output
-    adjacency = df.copy(deep=True)
-    
+
     np.fill_diagonal(df.values, 0)
 
     # Make graph from adjacency matrix
@@ -106,42 +112,48 @@ def add_supercats(df_in):
     mapping = dict(zip(range(len(cats)), sorted(list(cats))))
 
     nx.relabel_nodes(graph, mapping, False)
-    
-    parts = partitions(graph)
-    
+
+    parts = _partitions(graph)
+
     # Prepare frame
     df_out = df_in.copy(deep=True)
     df_out['super_category'] = np.nan
     df_out['sub_category'] = np.nan
-    
+
     # Add 'super category' column to df
-    df_out.loc[:,'super_category'] = get_cat(data, parts)
-    
+    df_out.loc[:, 'super_category'] = _get_cat(data, parts)
+
     # Now find sub categories
     for key in parts:
         # List of nodes for the subgraph: all cats without the namegiving one
-        catlist = [item for item in parts[key]['categories'] if (item is not parts[key]['name'])]
+        catlist = [item for item in parts[key]['categories']
+                   if (item is not parts[key]['name'])]
         # subgraph
         subgraph = graph.subgraph(catlist)
         # This subgraph will now contain some single "stray" nodes
         # that were only connected to the namegiving node. Remove them
         components = nx.connected_component_subgraphs(subgraph)
-        connected = max(components, key = len) # Only take largest
-        
+        connected = max(components, key=len)  # Only take largest
+
         # partitioning
-        subparts = partitions(connected)
+        subparts = _partitions(connected)
         # Adding to result dict
         parts[key]['sub_categories'] = subparts
         # Add to dataframe
-        df_out.loc[df_out['super_category']==key,'sub_category'] = get_cat(data, subparts)
+        df_out.loc[df_out['super_category'] == key, 'sub_category'] = (
+            _get_cat(data, subparts))
 
     # Special case: No category at all will be -1
-    parts[-1] = {'name': 'Uncategorized', 'categories': [], 'sub_categories': {}}
+    parts[-1] = {
+        'name': 'Uncategorized', 'categories': [], 'sub_categories': {}}
     for key in parts:
-        parts[key]['sub_categories'][-1] = {'name': 'Uncategorized', 'categories': []}
-    df_out[['super_category','sub_category']] = df_out[['super_category','sub_category']].fillna(-1)
-    
+        parts[key]['sub_categories'][-1] = {
+            'name': 'Uncategorized', 'categories': []}
+    df_out[['super_category', 'sub_category']] = (
+        df_out[['super_category', 'sub_category']].fillna(-1))
+
     # Make sure they are integers - this was a problem somehow
-    df_out[['super_category','sub_category']] = df_out[['super_category','sub_category']].astype(int)
-    
+    df_out[['super_category', 'sub_category']] = (
+        df_out[['super_category', 'sub_category']].astype(int))
+
     return (df_out, parts)
