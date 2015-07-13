@@ -43,7 +43,7 @@ def _get_name(*args, base_path=".", **kwargs):
 
 def cache_result(pickle_dir):
     def decorate(function):
-        def decorated(*args, cache=True, **kwargs):
+        def decorated(*args, cache=True, new_cache=False, **kwargs):
             if not cache:
                 # No caching, do nothing
                 return function(*args, **kwargs)
@@ -55,16 +55,17 @@ def cache_result(pickle_dir):
                 pickle_file = _get_name(*args, base_path=pickle_dir, **kwargs)
 
                 try:
+                    # Make sure we dont force a new one
+                    assert not(new_cache)
                     # Try to read from pickle
                     with open(pickle_file, 'rb') as f:
-                        ret = pickle.load(f)
-                except FileNotFoundError:
+                        return pickle.load(f)
+                except (FileNotFoundError, AssertionError):
                     # Not found, execute function and save return frame
                     # as pickle
                     ret = function(*args, **kwargs)
                     with open(pickle_file, 'wb') as f:
                         pickle.dump(ret, f)
-
-                return ret
+                    return ret
         return decorated
     return decorate
