@@ -43,7 +43,10 @@ def _get_name(*args, base_path=".", **kwargs):
 
 def cache_result(pickle_dir):
     def decorate(function):
-        def decorated(*args, cache=True, new_cache=False, **kwargs):
+        def decorated(*args,
+                      cache=True,
+                      new_cache=False,
+                      **kwargs):
             if not cache:
                 # No caching, do nothing
                 return function(*args, **kwargs)
@@ -52,7 +55,10 @@ def cache_result(pickle_dir):
                 makedirs(pickle_dir, exist_ok=True)
 
                 # Get pickle name
-                pickle_file = _get_name(*args, base_path=pickle_dir, **kwargs)
+                pickle_file = _get_name(function.__name__,
+                                        *args,
+                                        base_path=pickle_dir,
+                                        **kwargs)
 
                 try:
                     # Make sure we dont force a new one
