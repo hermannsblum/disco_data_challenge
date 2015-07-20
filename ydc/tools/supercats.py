@@ -77,6 +77,7 @@ def add_supercats(df_in):
             'sub_categories' (dict): Like the original dict, has:
                 'name' (string): Name of sub category
                 'categories': List of categories in sub category
+        combos (dict): list of all category combos with tuple as key and name
         """
 
     # Prepare data
@@ -161,4 +162,12 @@ def add_supercats(df_in):
     df_out['category'] = df_out.apply(
         lambda row: (row['super_category'], row['sub_category']), axis=1)
     
-    return (df_out, parts)
+    # Get a handy dict for all combinations
+    combos = {}
+    for super_key in parts:
+        sub_parts = parts[super_key]['sub_categories']
+        for sub_key in sub_parts:
+            combos[(super_key, sub_key)] = ("%s/%s" 
+                % (parts[super_key]['name'], sub_parts[sub_key]['name']))
+    
+    return (df_out, parts, combos)
