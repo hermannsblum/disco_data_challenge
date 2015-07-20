@@ -140,9 +140,10 @@ def add_supercats(df_in):
         # Adding to result dict
         parts[key]['sub_categories'] = subparts
         # Add to dataframe
+        sub_key = _get_cat(data, subparts)
         df_out.loc[df_out['super_category'] == key, 'sub_category'] = (
-            _get_cat(data, subparts))
-
+            sub_key)
+        
     # Special case: No category at all will be -1
     parts[-1] = {
         'name': 'Uncategorized', 'categories': [], 'sub_categories': {}}
@@ -155,5 +156,9 @@ def add_supercats(df_in):
     # Make sure they are integers - this was a problem somehow
     df_out[['super_category', 'sub_category']] = (
         df_out[['super_category', 'sub_category']].astype(int))
-
+    
+    # Add a general "category" tuple for easy grouping
+    df_out['category'] = df_out.apply(
+        lambda row: (row['super_category'], row['sub_category']), axis=1)
+    
     return (df_out, parts)

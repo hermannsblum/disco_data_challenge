@@ -6,6 +6,8 @@ from os import path
 
 from os import makedirs
 
+from inspect import getsource
+
 PICKLE_PATH = 'pickles'
 
 
@@ -17,7 +19,7 @@ def _hash_frame(df, path="test"):
     return bytes(str(cols + idxs), 'UTF-8')
 
 
-def _get_name(*args, base_path=".", **kwargs):
+def _get_name(*args, base_path=".", function=None, **kwargs):
     # Get name first
     pickle_hash = hashlib.md5()
     # args
@@ -27,6 +29,10 @@ def _get_name(*args, base_path=".", **kwargs):
             pickle_hash.update(_hash_frame(arg))
         else:
             pickle_hash.update(bytes(str(arg), 'UTF-8'))
+
+    # Function specific
+    pickle_hash.update(bytes(function.__name__, 'UTF-8'))
+    pickle_hash.update(bytes(getsource(function), 'UTF-8'))
 
     # kwargs
     for key in sorted(kwargs.keys()):
@@ -55,9 +61,9 @@ def cache_result(pickle_dir):
                 makedirs(pickle_dir, exist_ok=True)
 
                 # Get pickle name
-                pickle_file = _get_name(function.__name__,
-                                        *args,
+                pickle_file = _get_name(*args,
                                         base_path=pickle_dir,
+                                        function=function,
                                         **kwargs)
 
                 try:
