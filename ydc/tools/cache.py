@@ -2,11 +2,9 @@ import hashlib
 import pandas as pd
 import pickle
 
-from os import path
-
-from os import makedirs
-
 from inspect import getsource
+from os import path
+from os import makedirs
 
 PICKLE_PATH = 'pickles'
 

@@ -160,6 +160,9 @@ class CellCollection:
     def get_borders(self):
         return self.longitudes.copy(), self.latitudes.copy()
 
+    def __str__(self):
+        return str(self.to_dict())
+
 
 def distance(a, b):
     """Calculate distances between businesses
