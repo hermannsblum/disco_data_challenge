@@ -56,3 +56,12 @@ target/
 # AMIV stuff
 *.db
 config.cfg
+
+# Pickels
+pickles/
+
+# Raw-data
+data/
+
+# Alternative distance-calculations
+ydc/tools/distances_*.py
