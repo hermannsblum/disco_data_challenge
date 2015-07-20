@@ -1,8 +1,24 @@
 from geopy.distance import vincenty
 from numpy import linspace
-from math import exp
+from math import exp, radians, cos, sin, asin, sqrt
 import pandas as pd
 from operator import itemgetter
+
+
+def haversine(lon1, lat1, lon2, lat2):
+    """
+    Calculate the great circle distance between two points 
+    on the earth (specified in decimal degrees)
+    """
+    # convert decimal degrees to radians 
+    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+    # haversine formula 
+    dlon = lon2 - lon1 
+    dlat = lat2 - lat1 
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * asin(sqrt(a)) 
+    km = 6367 * c
+    return km
 
 
 class CellCollection:
@@ -53,9 +69,7 @@ class CellCollection:
                          self.latitudes.searchsorted(latitudes[0]))
                 if coord[0] not in self.cells:
                     self.cells[coord[0]] = {}
-                if len(bizs) > 0:
-                    # We don't need empty entries
-                    self.cells[coord[0]].update({coord[1]: bizs})
+                self.cells[coord[0]].update({coord[1]: bizs})
 
         self.longitudes = linspace(-180, 180, (2 ** (potenz + 1)) + 1)
         self.latitudes = linspace(-90, 90, (2 ** potenz) + 1)
@@ -71,6 +85,7 @@ class CellCollection:
         y = self.latitudes.searchsorted(business.latitude)
         return x, y
 
+    #@profile
     def get_neighbours(self, business, num=5):
         """Finds neighbours of a given business
         :param business: the business we search neighbours for
@@ -95,6 +110,8 @@ class CellCollection:
                 radius['lat_up'] = num_latitudes - 1
 
         cell = self.get_cell(business)
+        b_long = business.longitude
+        b_lat = business.latitude
         radius = {'long_down': cell[0], 'long_up': cell[0] + 1,
                   'lat_down': cell[1], 'lat_up': cell[1] + 1}
         ret = []
@@ -104,6 +121,7 @@ class CellCollection:
             found = []
             radius_step(radius, self.longitudes.size, self.latitudes.size,
                         time)
+            time = time + 1
             for row in range(radius['long_down'], radius['long_up']):
                 for col in range(radius['lat_down'], radius['lat_up']):
                     if row in self.cells and col in self.cells[row]:
@@ -116,14 +134,14 @@ class CellCollection:
             # the distance between the centers of left and right border
             # (Not exactly the in-radius on the surface of a sphereoid, but
             # easier to calculate)
-            inner_radius = vincenty((self.longitudes[radius['long_down']],
-                                     self.latitudes[cell[1]]),
-                                    (self.longitudes[radius['long_up']],
-                                     self.latitudes[cell[1]])).km / 2
+            inner_radius = haversine(self.longitudes[radius['long_down']],
+                                     self.latitudes[cell[1]],
+                                     self.longitudes[radius['long_up']],
+                                     self.latitudes[cell[1]]) / 2
             for neighbour in found:
-                dist = vincenty((business.longitude, business.latitude),
-                                (neighbour['longitude'], neighbour['latitude'])
-                                ).km
+                n_long = neighbour['longitude']
+                n_lat = neighbour['latitude']
+                dist = haversine(b_long, b_lat, n_long, n_lat)
                 # make sure we only include businesses in the in-circle of the
                 # search-rectangle
                 if dist <= inner_radius and \
