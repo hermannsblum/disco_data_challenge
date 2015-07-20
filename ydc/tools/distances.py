@@ -7,16 +7,16 @@ from operator import itemgetter
 
 def haversine(lon1, lat1, lon2, lat2):
     """
-    Calculate the great circle distance between two points 
+    Calculate the great circle distance between two points
     on the earth (specified in decimal degrees)
     """
-    # convert decimal degrees to radians 
+    # convert decimal degrees to radians
     lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-    # haversine formula 
-    dlon = lon2 - lon1 
-    dlat = lat2 - lat1 
+    # haversine formula
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
     a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-    c = 2 * asin(sqrt(a)) 
+    c = 2 * asin(sqrt(a))
     km = 6367 * c
     return km
 
@@ -161,7 +161,26 @@ class CellCollection:
         return self.longitudes.copy(), self.latitudes.copy()
 
     def __str__(self):
-        return str(self.to_dict())
+        d = self.to_dict()
+
+        res = "{"
+
+        for key in sorted(d.keys()):
+            res += "%s: " % key
+            sub_d = d[key]
+            res += "{"
+            for subkey in sorted(sub_d.keys()):
+                res += "%s: [" % subkey
+                cells = sub_d[subkey]
+                cells_sorted = sorted(cells, key=itemgetter('index'))
+                for item in cells_sorted:
+                    for itemkey in sorted(item.keys()):
+                        res += "%s: %s, " % (itemkey, item[itemkey])
+                res += " ]"
+            res += "}, "
+
+        res += "}"
+        return str()
 
 
 def distance(a, b):
