@@ -2,6 +2,7 @@ from geopy.distance import vincenty
 from numpy import linspace
 from math import exp
 import pandas as pd
+from operator import itemgetter
 
 
 class CellCollection:
@@ -73,8 +74,8 @@ class CellCollection:
     def get_neighbours(self, business, num=5):
         """Finds neighbours of a given business
         :param business: the business we search neighbours for
-        :param num: minimum-number of neighbours returnes, default 5
-        :returns: list of dicts with 'index', 'latitude', 'longitude',
+        :param num: number of neighbours returned, default 5
+        :returns: sorted list of dicts with 'index', 'latitude', 'longitude',
             'distance'"""
 
         def radius_step(radius, num_longtidues, num_latitudes, time):
@@ -100,7 +101,6 @@ class CellCollection:
         time = 0
         inner_radius = 0
         while len(ret) < num and inner_radius < 100:
-            ret = []
             found = []
             radius_step(radius, self.longitudes.size, self.latitudes.size,
                         time)
@@ -108,7 +108,10 @@ class CellCollection:
                 for col in range(radius['lat_down'], radius['lat_up']):
                     if row in self.cells and col in self.cells[row]:
                         for item in self.cells[row][col]:
-                            found.append(item)
+                            if item not in ret:
+                                found.append(item)
+            if (len(found) + len(ret)) < num:
+                continue
             # We approximate the in-radius of the search-rectangle by half of
             # the distance between the centers of left and right border
             # (Not exactly the in-radius on the surface of a sphereoid, but
@@ -127,7 +130,7 @@ class CellCollection:
                         neighbour['index'] != business.name:
                     neighbour['distance'] = dist
                     ret.append(neighbour)
-        return ret
+        return sorted(ret, key=itemgetter('distance'))[:num]
 
     def to_dataframe(self):
         ret = pd.DataFrame(self.cells)
