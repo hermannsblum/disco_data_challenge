@@ -37,11 +37,10 @@ def import_file(file_path, pickle_name):
 @cache_result('pickles')
 @import_file(REVIEWS_PATH, 'reviews')
 def import_reviews(dataframe, status, fields):
-    if fields is not None:
-        if 'real_date' in fields:
-            assert 'date' in dataframe.columns.values
-            dataframe['real_date'] = dataframe['date'].apply(
-                lambda date: dt.datetime.strptime(date, '%Y-%m-%d'))
+    if fields is None or 'real_date' in fields:
+        assert 'date' in dataframe.columns.values
+        dataframe['real_date'] = dataframe['date'].apply(
+            lambda date: dt.datetime.strptime(date, '%Y-%m-%d'))
     print('Successfully imported reviews with columns {}'.format(
         dataframe.columns.values))
     return dataframe
@@ -50,18 +49,17 @@ def import_reviews(dataframe, status, fields):
 @cache_result('pickles')
 @import_file(BUSINESSES_PATH, 'businesses')
 def import_businesses(dataframe, status, fields):
-    if fields is not None:
-        if 'real_stars' in fields:
-            reviews = import_reviews(
-                fields=['business_id', 'stars'])
-            real_stars = reviews.groupby('business_id').mean()
-            real_stars.columns = ['real_stars']
-            dataframe = dataframe.join(real_stars, on='business_id')
-        if 'trend_stars' in fields:
-            reviews = import_reviews(
-                fields=['business_id', 'stars', 'date', 'real_date'])
-            dataframe['trend_stars'] = review_analysis.trend_stars(
-                dataframe['business_id'], reviews)
+    if fields is None or 'real_stars' in fields:
+        reviews = import_reviews(
+            fields=['business_id', 'stars'])
+        real_stars = reviews.groupby('business_id').mean()
+        real_stars.columns = ['real_stars']
+        dataframe = dataframe.join(real_stars, on='business_id')
+    #if fields is None or 'trend_stars' in fields:
+    #    reviews = import_reviews(
+    #        fields=['business_id', 'stars', 'date', 'real_date'])
+    #    dataframe['trend_stars'] = review_analysis.trend_stars(
+    #        dataframe['business_id'], reviews)
     if status:
         print('Successfully imported businesses with columns {}'.format(
               dataframe.columns.values))
