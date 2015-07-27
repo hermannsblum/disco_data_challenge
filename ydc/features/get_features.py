@@ -5,13 +5,7 @@ from ydc.tools.distances import CellCollection
 from ydc.tools.supercats import add_supercats
 from ydc.tools.cache import cache_result
 
-from ydc.features.category_features import count_combo
-
-
-def _indices(row, cells, n):
-    """Find indices of n closest businesses"""
-    nbrs = cells.get_neighbours(row, n)
-    return [item['index'] for item in nbrs]
+from ydc.features.category_features import count_combo, review_average
 
 
 @cache_result("pickles")
@@ -19,15 +13,22 @@ def _get_neighbourhoods(df, cells, n):
     """Get the neighbourhood. N businesses in total
     Caching because this neighbourhood is used in different functions
     """
-    # Find n-1 closest shops
-    others = df.apply(lambda row: _indices(row, cells, n - 1), axis=1)
+    
+    def _indices(nbrs):
+        return [item['index'] for item in nbrs]
 
-    # No add own index to every list to get neighbourshoods of size n
-    neighbourhoods_raw = {}
-    for key in others.index:
-        neighbourhoods_raw[key] = others[key] + [key]
+    def _distances(nbrs):
+        return [item['distance'] for item in nbrs]
+    
+    # get n-1 closest businesses + the business itself
+    nbrs = df.apply(
+        lambda row: cells.get_neighbours(row, num=n, add_self=True),
+        axis=1
+    )
 
-    return pd.Series(neighbourhoods_raw)
+    nbrs = pd.Series(nbrs)
+
+    return nbrs.apply(_indices), nbrs.apply(_distances)
 
 
 @cache_result("pickles")
@@ -52,17 +53,21 @@ def get_features(status=False, new_cache=False):
 
     if status:
         print('Finding neighbourhoods of size 25...', end="\r")
-    neighbourhood = _get_neighbourhoods(df, cells, 25, new_cache=new_cache)
+    (n_indices, n_distances) = _get_neighbourhoods(df, cells, 25, new_cache=new_cache)
 
     # Create features here (Make sure everything is cached to save work)
     # Every feature module is a new list element
     # (to easily combine or remove them)
     features = []
+    """
     if status:
         print('Neighbourhood features...', end="\r")
     features.append(count_combo(
         df, neighbourhood, new_cache=new_cache, new_neighbourhoods=new_cache))
-    # Add more!
+    """
+    if status:
+        print('Average Weighted Reviews', end='\r')
+    features.append(review_average(df, n_indices, n_distances, status))
 
     if status:
         print('Putting all together...', end="\r")
