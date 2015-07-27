@@ -3,7 +3,7 @@ from ydc.tools.cache import cache_result
 
 def _cat_count(indices, df):
     """Counts occurence and divides by number of businesses in neighbourhood"""
-    return df[indices].value_counts() / 25
+    return df.ix[indices].value_counts()
 
 
 @cache_result("pickles")

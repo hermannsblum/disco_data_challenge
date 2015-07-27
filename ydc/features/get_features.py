@@ -9,10 +9,6 @@ from ydc.features.categories import count_combo, count_super
 from ydc.features.review_count import count_rev
 
 
-def _offset(df):
-    return pd.Series(1, index=df.index)
-
-
 def _indices(row, cells, n):
     """Find indices of n closest businesses"""
     nbrs = cells.get_neighbours(row, n)
@@ -27,7 +23,9 @@ def _filter_busi(df, top, bottom, left, right, count):
 
     c = df['review_count'] >= count
 
-    idx = r & l & t & b & c
+    bad = df['real_stars'].isnull()
+
+    idx = r & l & t & b & c & -bad
 
     # Copy old and reindex
     res = df[idx].copy(deep=True)
@@ -96,9 +94,6 @@ def get_features(status=False, new_cache=False):
     if status:
         print('Review features...', end="\r")
     features.append(count_rev(df, neighbourhood, new_cache=new_cache))
-    if status:
-        print('Adding offset...', end="\r")
-    features.append(_offset(df))
 
     # Add more!
 

@@ -4,7 +4,7 @@ import pandas as pd
 
 def _rev_count(indices, df):
     """Different statistiks for review count"""
-    data = df[indices]
+    data = df.ix[indices]
     return (data.mean(),
             data.median(),
             data.std(),
