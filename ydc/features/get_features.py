@@ -1,23 +1,18 @@
 import pandas as pd
 
-from ydc.tools.import_data import import_businesses
+from ydc.tools.import_data import import_businesses, import_reviews
 from ydc.tools.distances import CellCollection
 from ydc.tools.supercats import add_supercats
 from ydc.tools.cache import cache_result
 
 from ydc.features.categories import count_combo, count_super
-from ydc.features.review_count import count_rev, review_average
+from ydc.features.review_count import count_rev, review_average, last_year_reviews
+from ydc.features.distances import neighbourhood_radius
+from ydc.features.stars import stars_stats
 
 
-<<<<<<< HEAD
 def _offset(df):
     return pd.Series(1, index=df.index)
-=======
-def _indices(row, cells, n):
-    """Find indices of n closest businesses"""
-    nbrs = cells.get_neighbours(row, n)
-    return [item['index'] for item in nbrs]
->>>>>>> 3b7b1dea15123a50a1c0a059a2c3242c72790bb0
 
 
 def _filter_busi(df, top, bottom, left, right, count):
@@ -73,6 +68,8 @@ def get_features(status=False, new_cache=False, offset=False):
     if status:
         print('Importing data...', end="\r")
     df_raw = import_businesses(new_cache=new_cache)
+    reviews = import_reviews(fields=['business_id', 'stars', 'date', 'real_date'], 
+                             new_cache=new_cache)
 
     if status:
         print('Filtering businesses...', end="\r")
@@ -119,6 +116,20 @@ def get_features(status=False, new_cache=False, offset=False):
             print('Adding offset...', end="\r")
         features.append(_offset(df))
 
+    if status:
+        print('Neighbourhood Radius...', end='\r')
+    features.append(neighbourhood_radius(n_distances, new_cache=new_cache))
+
+    if status:
+        print('Stars...', end='\r')
+    features.append(stars_stats(df, n_indices, new_cache=new_cache))
+
+    """
+    if status:
+        print('Reviews in the last year...', end='\r')
+    features.append(last_year_reviews(df, reviews, n_indices, status, 
+                                      new_cache=new_cache))
+    """
     # Add more!
 
     if status:
