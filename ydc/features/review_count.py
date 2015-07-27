@@ -1,37 +1,47 @@
 from ydc.tools.cache import cache_result
 import pandas as pd
+import numpy as np
 
-
-def _rev_count(indices, df):
-    """Different statistiks for review count"""
-    data = df[indices]
-    return (data.mean(),
-            data.median(),
-            data.std(),
-            data.max(),
-            data.min(),
-            data.sum())
+@cache_result('pickles')
+def _count_reviews(businesses, indices):
+    return indices.apply(
+        lambda row: pd.Series(businesses.iloc[row]['review_count'].reset_index(drop=True)))
 
 
 @cache_result("pickles")
-def count_rev(df, nbrs):
+def count_rev(df, indices):
     # If we use the tuples pandas gets ecited and creates a multiindex
-    df_work = df['review_count']
 
-    df_feats = nbrs.apply(lambda indices: _rev_count(indices, df_work))
+    data = _count_reviews(df, indices)
 
-    # Replace NaN with 0 (0 occurences)
-    df_feats.fillna(0, inplace=True)
+    """Different statistiks for review count"""
+    df_feat = pd.DataFrame()
+    df_feat['reviews_mean'] = data.mean(1)
+    df_feat['reviews_median'] = data.median(1)
+    df_feat['reviews_std'] = data.std(1)
+    df_feat['reviews_max'] = data.max(1)
+    df_feat['reviews_min'] = data.min(1)
+    df_feat['reviews_sum'] = data.sum(1)
 
-    # Make Frame
-    data = list(zip(*df_feats))
-    cols = ['reviews_mean',
-            'reviews_median',
-            'reviews_std',
-            'reviews_max',
-            'reviews_min',
-            'reviews_sum']
-    res = pd.DataFrame(data).transpose()
-    res.columns = cols
+    return df_feat
 
-    return res
+
+@cache_result('pickles')
+def review_average(businesses, indices, distances, status):
+    def _mean_reviews(review_counts, idx, dist, status):
+        distances = pd.Series(dist.iloc[idx])
+        if status:
+            print("Index {}".format(idx), end='\r')
+        return np.mean(review_counts * np.exp(-1 * distances))
+
+    if status:
+        print("Counting reviews", end='\r')
+    review_counts = _count_reviews(businesses, indices)
+
+    if status:
+        print("Find the Average", end='\r')
+    average_review_count = review_counts.apply(
+        lambda row: _mean_reviews(row.values, row.name, distances, status),
+        axis=1)
+
+    return average_review_count.fillna(0)

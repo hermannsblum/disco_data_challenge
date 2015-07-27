@@ -5,8 +5,8 @@ from ydc.tools.distances import CellCollection
 from ydc.tools.supercats import add_supercats
 from ydc.tools.cache import cache_result
 
-from ydc.features.categories import count_combo, count_super, review_average
-from ydc.features.review_count import count_rev
+from ydc.features.categories import count_combo, count_super
+from ydc.features.review_count import count_rev, review_average
 
 
 def _offset(df):
@@ -59,7 +59,7 @@ def _get_cells(pot, df):
     return CellCollection(pot, df)
 
 
-def get_features(status=False, new_cache=False):
+def get_features(status=False, new_cache=False, offset=False):
     """Imports businesses and creates a wide range of numerical features"""
     if status:
         print('Importing data...', end="\r")
@@ -93,7 +93,8 @@ def get_features(status=False, new_cache=False):
 
     if status:
         print('Average Weighted Reviews', end='\r')
-    features.append(review_average(df, n_indices, n_distances, status))
+    features.append(review_average(df, n_indices, n_distances, status,
+                                   new_cache=new_cache))
 
     """
     if status:
@@ -103,10 +104,11 @@ def get_features(status=False, new_cache=False):
     """
     if status:
         print('Review features...', end="\r")
-    features.append(count_rev(df, neighbourhood, new_cache=new_cache))
-    if status:
-        print('Adding offset...', end="\r")
-    features.append(_offset(df))
+    features.append(count_rev(df, n_indices, new_cache=new_cache))
+    if offset:
+        if status:
+            print('Adding offset...', end="\r")
+        features.append(_offset(df))
 
     # Add more!
 
@@ -118,4 +120,5 @@ def get_features(status=False, new_cache=False):
             box,
             combos,
             cells,
-            neighbourhood)
+            n_indices,
+            n_distances)
