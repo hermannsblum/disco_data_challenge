@@ -5,7 +5,29 @@ from ydc.tools.distances import CellCollection
 from ydc.tools.supercats import add_supercats
 from ydc.tools.cache import cache_result
 
-from ydc.features.category_features import count_combo, review_average
+from ydc.features.categories import count_combo, count_super, review_average
+from ydc.features.review_count import count_rev
+
+
+def _offset(df):
+    return pd.Series(1, index=df.index)
+
+
+def _filter_busi(df, top, bottom, left, right, count):
+    r = df['longitude'] <= right
+    l = df['longitude'] >= left
+    t = df['latitude'] <= top
+    b = df['latitude'] >= bottom
+
+    c = df['review_count'] >= count
+
+    idx = r & l & t & b & c
+
+    # Copy old and reindex
+    res = df[idx].copy(deep=True)
+    res.index = range(len(res.index))
+
+    return res
 
 
 @cache_result("pickles")
@@ -44,8 +66,17 @@ def get_features(status=False, new_cache=False):
     df_raw = import_businesses(new_cache=new_cache)
 
     if status:
+        print('Filtering businesses...', end="\r")
+    top = 49     # U
+    bottom = 25  # S
+    left = -130  # A
+    right = -65  # FUCK YEAH, MURICA
+    count = 0
+    df_filtered = _filter_busi(df_raw, top, bottom, left, right, count)
+
+    if status:
         print('Categorize...', end="\r")
-    (df, box, combos) = add_supercats(df_raw, new_cache=new_cache)
+    (df, box, combos) = add_supercats(df_filtered, new_cache=new_cache)
 
     if status:
         print('Sorting into cells...', end="\r")
@@ -59,15 +90,25 @@ def get_features(status=False, new_cache=False):
     # Every feature module is a new list element
     # (to easily combine or remove them)
     features = []
-    """
-    if status:
-        print('Neighbourhood features...', end="\r")
-    features.append(count_combo(
-        df, neighbourhood, new_cache=new_cache, new_neighbourhoods=new_cache))
-    """
+
     if status:
         print('Average Weighted Reviews', end='\r')
     features.append(review_average(df, n_indices, n_distances, status))
+
+    """
+    if status:
+        print('Category features...', end="\r")
+    features.append(count_combo(df, neighbourhood, new_cache=new_cache))
+    features.append(count_super(df, neighbourhood, new_cache=new_cache))
+    """
+    if status:
+        print('Review features...', end="\r")
+    features.append(count_rev(df, neighbourhood, new_cache=new_cache))
+    if status:
+        print('Adding offset...', end="\r")
+    features.append(_offset(df))
+
+    # Add more!
 
     if status:
         print('Putting all together...', end="\r")
