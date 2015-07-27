@@ -3,22 +3,7 @@ from numpy import linspace
 from math import exp, radians, cos, sin, asin, sqrt
 import pandas as pd
 from operator import itemgetter
-
-
-def haversine(lon1, lat1, lon2, lat2):
-    """
-    Calculate the great circle distance between two points
-    on the earth (specified in decimal degrees)
-    """
-    # convert decimal degrees to radians
-    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-    # haversine formula
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-    c = 2 * asin(sqrt(a))
-    km = 6367 * c
-    return km
+from haversine import haversine
 
 
 class CellCollection:
@@ -86,7 +71,7 @@ class CellCollection:
         return x, y
 
     #@profile
-    def get_neighbours(self, business, num=5):
+    def get_neighbours(self, business, num=5, add_self=False):
         """Finds neighbours of a given business
         :param business: the business we search neighbours for
         :param num: number of neighbours returned, default 5
@@ -134,18 +119,18 @@ class CellCollection:
             # the distance between the centers of left and right border
             # (Not exactly the in-radius on the surface of a sphereoid, but
             # easier to calculate)
-            inner_radius = haversine(self.longitudes[radius['long_down']],
-                                     self.latitudes[cell[1]],
-                                     self.longitudes[radius['long_up']],
-                                     self.latitudes[cell[1]]) / 2
+            inner_radius = haversine((self.longitudes[radius['long_down']],
+                                     self.latitudes[cell[1]]),
+                                     (self.longitudes[radius['long_up']],
+                                     self.latitudes[cell[1]])) / 2
             for neighbour in found:
                 n_long = neighbour['longitude']
                 n_lat = neighbour['latitude']
-                dist = haversine(b_long, b_lat, n_long, n_lat)
+                dist = haversine((b_long, b_lat), (n_long, n_lat))
                 # make sure we only include businesses in the in-circle of the
                 # search-rectangle
                 if dist <= inner_radius and \
-                        neighbour['index'] != business.name:
+                        (add_self or neighbour['index'] != business.name):
                     neighbour['distance'] = dist
                     ret.append(neighbour)
         return sorted(ret, key=itemgetter('distance'))[:num]
