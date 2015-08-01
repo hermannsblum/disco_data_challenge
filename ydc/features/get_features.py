@@ -6,8 +6,13 @@ from ydc.tools.supercats import add_supercats
 from ydc.tools.cache import cache_result
 
 from ydc.features.categories import count_combo, count_super
-from ydc.features.review_count import count_rev, review_average, last_year_reviews
-from ydc.features.distances import neighbourhood_radius
+from ydc.features.review_count import (
+    count_rev,
+    review_average,
+    last_year_reviews)
+from ydc.features.distances import (
+    neighbourhood_radius,
+    neighbourhood_radius_squared)
 from ydc.features.stars import stars_stats
 
 
@@ -39,13 +44,13 @@ def _get_neighbourhoods(df, cells, n):
     """Get the neighbourhood. N businesses in total
     Caching because this neighbourhood is used in different functions
     """
-    
+
     def _indices(nbrs):
         return [item['index'] for item in nbrs]
 
     def _distances(nbrs):
         return [item['distance'] for item in nbrs]
-    
+
     # get n-1 closest businesses + the business itself
     nbrs = df.apply(
         lambda row: cells.get_neighbours(row, num=n, add_self=True),
@@ -63,13 +68,14 @@ def _get_cells(pot, df):
     return CellCollection(pot, df)
 
 
-def get_features(status=False, new_cache=False, offset=False):
+def get_features(status=False, new_cache=False):
     """Imports businesses and creates a wide range of numerical features"""
     if status:
         print('Importing data...', end="\r")
     df_raw = import_businesses(new_cache=new_cache)
-    reviews = import_reviews(fields=['business_id', 'stars', 'date', 'real_date'], 
-                             new_cache=new_cache)
+    reviews = import_reviews(
+        fields=['business_id', 'stars', 'date', 'real_date'],
+        new_cache=new_cache)
 
     if status:
         print('Filtering businesses...', end="\r")
@@ -90,7 +96,8 @@ def get_features(status=False, new_cache=False, offset=False):
 
     if status:
         print('Finding neighbourhoods of size 25...', end="\r")
-    (n_indices, n_distances) = _get_neighbourhoods(df, cells, 25, new_cache=new_cache)
+    (n_indices, n_distances) = _get_neighbourhoods(
+        df, cells, 25, new_cache=new_cache)
 
     # Create features here (Make sure everything is cached to save work)
     # Every feature module is a new list element
@@ -102,23 +109,20 @@ def get_features(status=False, new_cache=False, offset=False):
     features.append(review_average(df, n_indices, n_distances, status,
                                    new_cache=new_cache))
 
-    """
     if status:
         print('Category features...', end="\r")
-    features.append(count_combo(df, neighbourhood, new_cache=new_cache))
-    features.append(count_super(df, neighbourhood, new_cache=new_cache))
-    """
+    features.append(count_combo(df, n_indices, new_cache=new_cache))
+    features.append(count_super(df, n_indices, new_cache=new_cache))
+
     if status:
         print('Review features...', end="\r")
     features.append(count_rev(df, n_indices, new_cache=new_cache))
-    if offset:
-        if status:
-            print('Adding offset...', end="\r")
-        features.append(_offset(df))
 
     if status:
         print('Neighbourhood Radius...', end='\r')
     features.append(neighbourhood_radius(n_distances, new_cache=new_cache))
+    features.append(neighbourhood_radius_squared(n_distances,
+                                                 new_cache=new_cache))
 
     if status:
         print('Stars...', end='\r')
@@ -127,11 +131,14 @@ def get_features(status=False, new_cache=False, offset=False):
     """
     if status:
         print('Reviews in the last year...', end='\r')
-    features.append(last_year_reviews(df, reviews, n_indices, status, 
+    features.append(last_year_reviews(df, reviews, n_indices, status,
                                       new_cache=new_cache))
     """
     # Add more!
-
+    """
+    df['last_year'] = last_year_reviews(
+        df, reviews, n_indices, status, new_cache=new_cache)
+    """
     if status:
         print('Putting all together...', end="\r")
     # Concat it all and return
