@@ -1,6 +1,6 @@
 import pandas as pd
 
-from ydc.tools.import_data import import_businesses, import_reviews
+from ydc.tools.import_data import import_businesses
 from ydc.tools.distances import CellCollection
 from ydc.tools.supercats import add_supercats
 from ydc.tools.cache import cache_result
@@ -8,8 +8,7 @@ from ydc.tools.cache import cache_result
 from ydc.features.categories import count_combo, count_super
 from ydc.features.review_count import (
     count_rev,
-    review_average,
-    last_year_reviews)
+    review_average)
 from ydc.features.distances import (
     neighbourhood_radius,
     neighbourhood_radius_squared)
@@ -72,10 +71,7 @@ def get_features(status=False, new_cache=False):
     """Imports businesses and creates a wide range of numerical features"""
     if status:
         print('Importing data...', end="\r")
-    df_raw = import_businesses(new_cache=new_cache)
-    reviews = import_reviews(
-        fields=['business_id', 'stars', 'date', 'real_date'],
-        new_cache=new_cache)
+    df_raw = import_businesses(new_cache=True)
 
     if status:
         print('Filtering businesses...', end="\r")
