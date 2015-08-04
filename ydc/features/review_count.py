@@ -15,6 +15,7 @@ def _neighbour_ids(businesses, indices):
     return indices.apply(
         lambda row: businesses.iloc[row]['business_id'].reset_index(drop=True))
 
+
 @cache_result("pickles")
 def count_rev(df, indices):
     # If we use the tuples pandas gets ecited and creates a multiindex
@@ -54,31 +55,3 @@ def review_average(businesses, indices, distances, status):
     average_review_count.name = 'weighted review-count'
 
     return average_review_count.fillna(0)
-
-@cache_result('pickles')
-def last_year_reviews(businesses, reviews, indices, status):
-
-    def _search_last_year(reviews, bids, status):
-        container = []
-        if status:
-            print('index {}'.format(bids.name), end='\r')
-        print(bids)
-        for bid in bids:
-            if status:
-                print('index {}, business {}'.format(bids.name, bid), end='\r')
-            business_reviews = reviews[reviews['business_id'] == bid]
-            last_review = business_reviews['real_date'].max()
-            container.append(
-                business_reviews[business_reviews['real_date'] > \
-                (last_review - dt.timedelta(days=365))].count())
-        return np.mean(container)
-
-    neighbour_ids = _neighbour_ids(businesses, indices)
-
-    last_year_reviewcount = neighbour_ids.apply(
-        lambda row: _search_last_year(reviews, row, status))
-
-    last_year_reviewcount.name = 'Reviews Last Year'
-
-    return last_year_reviewcount
-

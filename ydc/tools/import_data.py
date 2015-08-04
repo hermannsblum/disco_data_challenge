@@ -47,6 +47,7 @@ def _one_year(date_series):
 @cache_result('pickles')
 def import_businesses(status=None, fields=None):
     dataframe = _get_frame(BUSINESSES_PATH, fields)
+
     if fields is None or 'real_stars' in fields:
         reviews = import_reviews(
             fields=['business_id', 'stars'])
@@ -62,6 +63,18 @@ def import_businesses(status=None, fields=None):
         result = grouped['review_count_last_year'].apply(
             lambda x: x.nanosecond)
         dataframe = dataframe.join(result, on='business_id')
+
+    if fields is None or 'lifetime' in fields:
+        reviews = import_reviews(
+            fields=['business_id', 'date', 'real_date'])
+        # Get lifetime and reviews per lifetime per business
+        lifetime = reviews.groupby('business_id')['real_date'].agg(
+            lambda row: row.max() - row.min()).astype('timedelta64[D]')
+        lifetime[lifetime == 0] = 1  # At least 1 day
+        lifetime.name = 'lifetime'
+        dataframe = dataframe.join(lifetime, on='business_id')
+        dataframe['reviews_per_lifetime'] = (
+            dataframe['review_count'] / dataframe['lifetime'])
 
     # if fields is None or 'trend_stars' in fields:
     #    reviews = import_reviews(
