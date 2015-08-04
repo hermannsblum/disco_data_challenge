@@ -4,6 +4,7 @@ from math import exp, radians, cos, sin, asin, sqrt
 import pandas as pd
 from operator import itemgetter
 from haversine import haversine
+from ydc.tools.cache import cache_result
 
 
 class CellCollection:
@@ -28,7 +29,7 @@ class CellCollection:
                 return
             if longitudes.size > 2:
                 # First we devide the collection along the center of longitudes
-                center = longitudes[len(longitudes) / 2]
+                center = longitudes[longitudes.size / 2]
                 fill_cells(self, latitudes,
                            longitudes[:(longitudes.size / 2 + 1)],
                            businesses[businesses.longitude <= center])
@@ -66,8 +67,8 @@ class CellCollection:
     def get_cell(self, business):
         """Finds the Cell the given businesses would belong to
         :returns: Coordinates as a Tuple"""
-        x = self.longitudes.searchsorted(business.longitude)
-        y = self.latitudes.searchsorted(business.latitude)
+        x = self.longitudes.searchsorted(business.longitude) - 1
+        y = self.latitudes.searchsorted(business.latitude) - 1 
         return x, y
 
     #@profile
@@ -135,6 +136,49 @@ class CellCollection:
                     ret.append(neighbour)
         return sorted(ret, key=itemgetter('distance'))[:num]
 
+    def get_region(self, business, radius):
+        cell = self.get_cell(business)
+        b_long = business.longitude
+        b_lat = business.latitude
+        # what is the search-radius in cell-indices?
+        cell_radius = int(1 + radius / max(
+            haversine((self.longitudes[cell[0]], self.latitudes[cell[1]]),
+                      (self.longitudes[cell[0] + 1], self.latitudes[cell[1]])
+                      ),
+            haversine((self.longitudes[cell[0]], self.latitudes[cell[1]]),
+                      (self.longitudes[cell[0]], self.latitudes[cell[1] + 1]))
+            ))
+        search_frame = {'long_down': cell[0] - cell_radius, 
+                        'long_up': cell[0] + 1 + cell_radius,
+                        'lat_down': cell[1] - cell_radius, 
+                        'lat_up': cell[1] + 1 + cell_radius}
+        if search_frame['long_down'] < 0:
+            search_frame['long_down'] = 0
+        if search_frame['long_up'] >= self.longitudes.size:
+            search_frame = self.longitudes.size - 1
+        if search_frame['lat_down'] < 0:
+            search_frame['lat_down'] = 0
+        if search_frame['lat_up'] >= self.latitudes.size:
+            search_frame['lat_up'] = self.latitudes.size - 1
+
+        found = []
+        for row in range(search_frame['long_down'], search_frame['long_up']):
+            for col in range(search_frame['lat_down'], search_frame['lat_up']):
+                if row in self.cells and col in self.cells[row]:
+                    for item in self.cells[row][col]:
+                        found.append(item)
+        ret = []
+        for neighbour in found:
+            n_long = neighbour['longitude']
+            n_lat = neighbour['latitude']
+            dist = haversine((b_long, b_lat), (n_long, n_lat))
+            # make sure we only include businesses in the in-circle of the
+            # search-rectangle
+            if dist <= radius:
+                neighbour['distance'] = dist
+                ret.append(neighbour)
+        return sorted(ret, key=itemgetter('distance'))
+
     def to_dataframe(self):
         ret = pd.DataFrame(self.cells)
         return ret
@@ -166,6 +210,11 @@ class CellCollection:
 
         res += "}"
         return str()
+
+
+@cache_result('pickles')
+def make_cell_collection(potenz, businesses):
+    return CellCollection(potenz, businesses)
 
 
 def distance(a, b):
