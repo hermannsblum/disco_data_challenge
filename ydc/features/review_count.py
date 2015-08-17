@@ -40,7 +40,7 @@ def review_average(businesses, indices, distances, status):
         distances = pd.Series(dist.iloc[idx])
         if status:
             print("Index {}".format(idx), end='\r')
-        return np.mean(review_counts * np.exp(-1 * distances))
+        return np.mean(review_counts / (1 + dist ** 2))
 
     if status:
         print("Counting reviews", end='\r')
