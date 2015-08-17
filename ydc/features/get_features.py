@@ -84,6 +84,28 @@ def _simple_stats(key, df, n_ind):
     })
 
 
+@cache_result('pickles')
+def distance_weighted_stats(key, df, n_ind, distances, status=False):
+    def _weighted_mean(data, idx, distances, status):
+        distances = pd.Series(distances.iloc[idx])
+        if status:
+            print("Index {}".format(idx), end='\r')
+        return mean(data * 1 / (1 + distances ** 2))
+
+    if status:
+        print("Reading data", end='\r')
+    data = n_ind.apply(
+        lambda row: pd.Series(
+            df.loc[row, key].reset_index(drop=True)))
+
+    if status:
+        print("Weight the Average", end='\r')
+    weighted = data.apply(
+        lambda row: _weighted_mean(row, row.index, distances, status))
+
+    return weighted
+
+
 @cache_result("pickles")
 def _get_cells(pot, df):
     """This function is just a wrapper for easy caching"""
