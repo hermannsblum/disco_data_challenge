@@ -47,3 +47,22 @@ def rel_stars_stats(df, n_ind, combos):
         'relative_rating_mean': n_new.mean(1),
         'relative_rating_std': n_new.std(1)
     })
+
+@cache_result('pickles')
+def distance_stars(businesses, indices, distances, status):
+    def _mean_stars(stars, idx, distances, status):
+        distances = pd.Series(distances.iloc[idx])
+        if status:
+            print("Index {}".format(idx), end='\r')
+        return mean(stars * 1 / (1 + distances ** 2))
+
+    if status:
+        print("Reading stars", end='\r')
+    stars = _get_stars(businesses, indices)
+
+    if status:
+        print("Find the Average", end='\r')
+    average_stars = stars.apply(
+        lambda row: _mean_stars(row, row.index, distances, status))
+
+    return average_stars
