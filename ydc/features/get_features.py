@@ -11,7 +11,7 @@ from ydc.features.review_count import (
 from ydc.features.distances import (
     neighbourhood_radius,
     neighbourhood_radius_squared)
-from ydc.features.stars import stars_stats, rel_stars_stats
+from ydc.features.stars import stars_stats, rel_stars_stats, distance_stars
 
 
 def _offset(df):
@@ -166,11 +166,17 @@ def get_features(status=False, new_cache=False):
     features.append(stars_stats(df, n_indices, new_cache=new_cache))
     features.append(
         rel_stars_stats(df, n_indices, combos, new_cache=new_cache))
+    features.append(distance_stars(df, n_indices, n_distances, status,
+                    new_cache=new_cache))
 
     if status:
         print('Adding various smallers stats...')
     features.append(_simple_stats('lifetime', df, n_indices))
+    features.append(distance_weighted_stats('lifetime', df, n_indices,
+                    n_distances, status, new_cache=new_cache))
     features.append(_simple_stats('reviews_per_lifetime', df, n_indices))
+    features.append(distance_weighted_stats('reviews_per_lifetime', df, n_indices,
+                    n_distances, status, new_cache=new_cache))
     features.append(df['latitude'])
     features.append(df['longitude'])
     # features.append(_simple_stats('review_count', df, n_indices))
