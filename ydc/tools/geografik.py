@@ -32,7 +32,7 @@ def region_cells(businesses, cells, city, radius):
 
 
 def dict_to_kml(kml, borders, cell_dict, color_mapper, **kwargs):
-    def make_polygon(folder, name, lowerleft, upperright, color):
+    def make_polygon(folder, name, lowerleft, upperright, style):
         pol = folder.newpolygon(name=name)
         pol.extrude = 1
         coords = [lowerleft,
@@ -41,7 +41,7 @@ def dict_to_kml(kml, borders, cell_dict, color_mapper, **kwargs):
                   (upperright[0], lowerleft[1]),
                   lowerleft]
         pol.outerboundaryis = coords
-        pol.style.polystyle.color = color
+        pol.style.polystyle.color = style
 
     longitudes = borders[0]
     latitudes = borders[1]
@@ -56,7 +56,7 @@ def dict_to_kml(kml, borders, cell_dict, color_mapper, **kwargs):
 
 
 def cat_color(category, box):
-    if category[0] == 0: 
+    if category[0] == -1: 
         return '000000'
     hue = category[0]/(len(box.keys()) - 1)  # Around the circle
     # Avoid the middle so not everything gets white

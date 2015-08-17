@@ -58,17 +58,20 @@ def delta_stars(resolution, city, new_cache=False):
 
 def review_counts(resolution, city, new_cache=False):
     def review_count_color(review_count, maximum=0):
-        norm_value = (1 - (review_count / maximum) ** 2) 
+        norm_value = (1 - ((review_count) / (maximum))) 
         return '{0:02x}{1:02x}{1:02x}{1:02x}'.format(255, int(norm_value * 255))
 
     (businesses, box, combo) = add_supercats(import_businesses(), new_cache=new_cache)
     cells = make_cell_collection(resolution, businesses, new_cache=new_cache)
-    (review_count_dict, region_businesses) = region_cells(businesses, cells, city, 5)
+    (region_dict, region_businesses) = region_cells(businesses, cells, city, 5)
 
-    for x, row in review_count_dict.items():
+    review_count_dict = {}
+    for x, row in region_dict.items():
+        review_count_dict[x] = {}
         for y, cell in row.items():
-            review_count_dict[x][y] = np.mean(
-                region_businesses.loc[cell]['review_count_last_year'])
+            mean = np.mean(region_businesses.loc[cell]['review_count_last_year'])
+            if mean > 0:
+                review_count_dict[x][y] = mean
 
     # normalize data
     values = [item for row in review_count_dict.values() for item in row.values() \
@@ -117,27 +120,134 @@ def cat_density(resolution, city, new_cache=False):
         subfolders[superkey] = {key: folders[superkey].newfolder(name=subcats[key]['name']) for key in subcats}
 
     for cat in combo:
-        print('analyzing {}'.format(cat), end='\r')
-        cat_dens_dict = deepcopy(region_dict)
+        print('analyzing {}'.format(combo[cat]), end='\r')
         in_cat = region_businesses['category'] == cat
-        for x, row in cat_dens_dict.items():
+        cat_dens_dict = {}
+        for x, row in region_dict.items():
+            cat_dens_dict[x] = {}
             for y, cell in row.items():
-                if grouped.get_group((x, y))[in_cat]['business_id'].count() is np.nan:
-                    print(cell)
-                cat_dens_dict[x][y] = grouped.get_group((x, y))[in_cat]['business_id'].count()
-        values = [item for row in cat_dens_dict.values() for item in row.values()]
-        maximum = np.max(values)
-        subfolders[cat[0]][cat[1]] = dict_to_kml(subfolders[cat[0]][cat[1]], cells.get_borders(),
-                                                 cat_dens_dict, cat_dens_color, maximum=maximum)
+                count = grouped.get_group((x, y))[in_cat]['business_id'].count()
+                if count > 0:
+                    cat_dens_dict[x][y] = count
+        values = [item for row in cat_dens_dict.values() for item in row.values()\
+            if item is not np.nan]
+        if len(values) > 0:
+            maximum = np.max(values)
+            subfolders[cat[0]][cat[1]] = dict_to_kml(subfolders[cat[0]][cat[1]], cells.get_borders(),
+                                                     cat_dens_dict, cat_dens_color, maximum=maximum)
 
     # convert resolution into m
-    # pick random cell
     rand_cell = cells.get_cell(region_businesses.iloc[0])
     res_meters = resolution_to_meters(rand_cell, cells.get_borders())
 
     kml_path = path.join('kml_files',
                          '{}_category_density_{}.kml'.format(res_meters, city))
     kml.save(kml_path)
+
+
+def supercat_density(resolution, city, new_cache=False):
+    def cat_dens_color(cell, maximum=0):
+        norm_value = 1 - ((cell) / (maximum))
+        return '{0:02x}{1:02x}{1:02x}{1:02x}'.format(255, int(norm_value*255))
+
+    (businesses, box, combo) = add_supercats(import_businesses(), new_cache=new_cache)
+    cells = make_cell_collection(resolution, businesses, new_cache=new_cache)
+    (region_dict, region_businesses) = region_cells(businesses, cells, city, 5)
+
+    # add cell coordinate to dataframe, group businesses by cells
+    region_businesses['cell_coord'] = region_businesses.apply(lambda row: cells.get_cell(row), axis=1)
+    grouped = region_businesses.groupby('cell_coord')
+
+    kml = Kml()
+    # Create folder for every category and save them in dictionary
+    folders = {key: kml.newfolder(name=box[key]['name']) for key in box}
+
+    for cat in box:
+        print('analyzing {}'.format(box[cat]['name']), end='')
+        cat_dens_dict = {}
+        in_cat = region_businesses['super_category'] == cat
+        for x in region_dict:
+            if x not in cat_dens_dict:
+                cat_dens_dict[x] = {}
+            for y in region_dict[x]:
+                # count the number of businesses of cat in this cell
+                count = grouped.get_group((x, y))[in_cat]['business_id'].count()
+                # only add cell if there exist such businesses
+                if count > 0:
+                    cat_dens_dict[x][y] = grouped.get_group((x, y))[in_cat]['business_id'].count()
+        values = [item for row in cat_dens_dict.values() for item in row.values()]
+        maximum = np.max(values)
+        print(', maximum: {}'.format(maximum))
+        folders[cat] = dict_to_kml(folders[cat], cells.get_borders(),
+                                                 cat_dens_dict, cat_dens_color, maximum=maximum)
+
+    # convert resolution into m
+    rand_cell = cells.get_cell(region_businesses.iloc[0])
+    res_meters = resolution_to_meters(rand_cell, cells.get_borders())
+
+    kml_path = path.join('kml_files', '{}_super_cat_dens_{}.kml'.format(
+        res_meters, city))
+    kml.save(kml_path)
+    print('saved')
+
+
+def cat_distribution(resolution, city):
+    def cat_to_color(cat, box=None):
+        return '{0:02x}{1}'.format(180, cat_color((cat, 0), box))
+
+    (businesses, box, combo) = add_supercats(import_businesses())
+    cells = make_cell_collection(resolution, businesses)
+    (region_dict, region_businesses) = region_cells(businesses, cells, city, 5)
+
+    # find general distribution of categories
+    std_group = region_businesses.groupby('super_category')['business_id'].count()
+    std_group = std_group / std_group.max()
+
+    # add cell coordinate to dataframe, group businesses by cells
+    region_businesses['cell_coord'] = region_businesses.apply(lambda row: cells.get_cell(row), axis=1)
+    grouped = region_businesses.groupby('cell_coord')
+
+    distribution_dict = {}
+    for x, row in region_dict.items():
+        distribution_dict[x] = {}
+        for y in row:
+            max_cat = None
+            max_count = 0
+            in_cell = grouped.get_group((x, y))
+            max_cat = in_cell.groupby('super_category')['business_id'].count()
+            max_cat = max_cat / std_group
+            max_cat = max_cat.idxmax()
+            # don't show uncategorized
+            if max_cat != -1:
+                distribution_dict[x][y] = max_cat
+
+    # convert resolution into m
+    rand_cell = cells.get_cell(region_businesses.iloc[0])
+    res_meters = resolution_to_meters(rand_cell, cells.get_borders())
+
+    kml = Kml()
+    kml = dict_to_kml(kml, cells.get_borders(), distribution_dict, cat_to_color,
+                      box=box)
+    kml_path = path.join('kml_files',
+                         '{}_cat_distribution_{}.kml'.format(res_meters, city))
+    kml.save(kml_path)
+
+    # save legend in html
+    html_path = path.join('kml_files',
+                         '{}_cat_distribution_{}.html'.format(res_meters, city))
+    legend = "<html><head></head><body>"
+    for cat in box:
+        # we don't show uncategorized, so we need no legend for this
+        if cat == -1:
+            continue
+        legend += ("&nbsp;{0}<div style='height: 15px; width: 100px; float: left; "
+                   "background-color: #{1};'></div><br>")\
+            .format(box[cat]['name'], cat_color((cat, 0), box))
+    legend += "</body></html>"
+    
+    html = open(html_path, 'w')
+    html.write(legend)
+    html.close()
 
 
 def businesses_markers(city):
